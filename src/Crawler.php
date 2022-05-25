@@ -27,9 +27,11 @@ class Crawler
 
         $this->doc->loadHTML( $data );
         $this->xpath = new DOMXpath( $this->doc );
+    }
 
-
-        // echo $this->doc->saveHTML();
+    public function html()
+    {
+        return $this->doc->saveHTML();
     }
 
     public function getMetas()
@@ -77,40 +79,62 @@ class Crawler
 
     public function googleSearchResults()
     {
-        if ( count( $this->links ) == 0 ) {
-            $this->getLinks();
-        }
-        
+        // $nodes = $this->xpath->query('//div[class="g"]');
+
+        // Google Maps
+        $nodes = $this->xpath->query("//div[@class='X7NTVe']");
         $r = [];
 
-        $organic_pattern = '/url\?q=(.*)&sa=/';
-        foreach( $this->links as $link ) {
-            $href = $link->getAttribute('href');
-            $title = '';
-            $extra = '';
+        foreach( $nodes as $node ) {
+            echo self::innerHTML( $node ) . PHP_EOL;
+            $c = 0;
+            $el = $node;
+            $i = [];
+            while ( $el->childElementCount > 0 ) {
+                $c++;
+                $class = $el->getAttribute('class');
+                $classes = explode(' ', $class);
+                echo "02.{$c} " . get_class( $el ) . ", " . $el->tagName . " (" . $class . "): " . $el->childElementCount  . PHP_EOL;
 
-            foreach( $link->childNodes as $node ) {
-                if ( $node->nodeName == 'h3' ) {
-                    $title = $node->nodeValue;
-                } else {
-                    $extra = $node->nodeValue;
+
+                switch ( $el->tagName ) {
+                    case 'a':
+                        $i['href'] = $el->getAttribute('href');
+                        break;
+
+                    // case 'h3':
+                    //     $i['title'] = self::innerHTML( $el );
+                    //     break;
+                        
+                    case 'div':
+                        if ( in_array( 'BNeawe', $classes ) ) {
+                            $i['name'] = $el->textContent;
+                        } 
+                        if ( in_array( 'Hk2yDb', $classes ) ) {
+                            $i['classification'] = self::innerHTML( $el );
+                        }
+                        break;
+
+                    case 'span':
+                        
+                        if ( in_array( 'UMOHqf', $classes ) ) {
+                            $i['title'] = self::innerHTML( $el );
+                        }
+                        if ( in_array( 'oqSTJd', $classes ) ) {
+                            $i['classification'] = self::innerHTML( $el );
+                        }
+                        break;
+
                 }
+                $el = $el->firstElementChild;
             }
-
-            preg_match( $organic_pattern, $href, $match );
-            if ( count( $match ) > 0 ) {
-                $r[] = [
-                    'link'  => $match[1],
-                    'title' => $title,
-                    'extra' => $extra,
-                ];
-            }
+            var_dump($i);
         }
 
         return $r;
     }
 
-    private function innerHTML( $node ) {
+    private static function innerHTML( $node ) {
         return implode( array_map( [$node->ownerDocument,"saveHTML"], 
                                    iterator_to_array($node->childNodes) ) );
     }
