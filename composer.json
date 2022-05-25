@@ -15,10 +15,7 @@
     "autoload": {
         "psr-4": {
             "Slendie\\Crawler\\": "src/"
-        },
-        "files": [
-            "src/helpers/database.php"
-        ]
+        }
     },
     "minimum-stability": "dev",
     "require": {}
