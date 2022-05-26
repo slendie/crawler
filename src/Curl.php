@@ -14,34 +14,105 @@ class Curl
         CURLOPT_USERAGENT           => "Googlebot/2.1 (+http://www.googlebot.com/bot.html)",    // Setting the user agent
         CURLOPT_URL                 => '',          // Setting cURL's URL option
         CURLOPT_ENCODING            => 'gzip,deflate',  // 
+        CURLOPT_SSL_VERIFYHOST      => false,
+        CURLOPT_SSL_VERIFYPEER      => false,
     ];
 
+    protected $url = null;
     protected $ch = null;
     protected $data = null;
-    protected $http_code = null;
-    protected $is_error = false;
+    protected $err = null;
+    protected $errmsg = null;
+    protected $header = null;
+    protected $has_error = false;
+    protected $code = null;
 
     public function __construct( string $url ) {
-        $this->ch = curl_init();        // Initialising cURL
-
-        // ampersand
-        // $url = str_replace( '&', '&&', $url );
-
-        $this->options[CURLOPT_URL] = $url;
-
-        curl_setopt_array( $this->ch, $this->options );  // Setting cURL's options using the previously assigned array data
+        $this->setUrl( $url );
     }
 
     public function parse()
     {
-        $this->data = curl_exec( $this->ch );       // Executing the cURL request and assiging the returned data to the $data attribute.
+        $this->ch = curl_init();        // Initialising cURL
 
-        $this->http_code = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );   // To check whether any error occur or not
+        $this->options[CURLOPT_URL] = $this->url;
 
-        if ( $this->http_code != "200" ) {
-            $this->is_error = true;
+        curl_setopt_array( $this->ch, $this->options );     // Setting cURL's options using the previously assigned array data
+
+        $this->data     = curl_exec( $this->ch );           // Executing the cURL request and assiging the returned data to the $data attribute.
+        $this->err      = curl_errno( $this->ch );
+        $this->errmsg   = curl_error( $this->ch );
+        $this->header   = curl_getinfo( $this->ch );        // To check whether any error occur or not
+        curl_close( $this->ch );
+        $this->code     = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
+        $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
+
+        if ( $this->header['http_code'] != "200" ) {
+            $this->has_error = true;
+            return false;
         }
+        return true;
+    }
 
-        return $this->data;                         // Returning the data from the function
+    public function header()
+    {
+        $this->ch = curl_init();        // Initialising cURL
+
+        $this->options[CURLOPT_URL]     = $this->url;
+
+        $options = $this->options;
+        $options[CURLOPT_NOBODY]    = true;
+        $options[CURLOPT_HEADER]    = true;
+        $options[CURLOPT_FILETIME]  = true;
+
+        curl_setopt_array( $this->ch, $options );           // Setting cURL's options using the previously assigned array data
+
+        $output = curl_exec( $this->ch );           // Executing the cURL request and assiging the returned data to the $data attribute.
+
+        $this->header   = curl_getinfo( $this->ch );        // To check whether any error occur or not
+        $this->code     = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
+        $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
+
+        curl_close( $this->ch );
+
+        return $this->header;                               // Returning the data from the function
+    }
+
+    public function setUrl( $url )
+    {
+        // ampersand
+        // $url = str_replace( '&', '&&', $url );
+
+        $this->url = $url;
+    }
+
+    public function getHeader()
+    {
+        return $this->header;
+    }
+
+    public function getCode()
+    {
+        return $this->code;
+    }
+    
+    public function getContentType()
+    {
+        return $this->content_type;
+    }
+    
+    public function getContent()
+    {
+        return $this->data;
+    }
+
+    public function getErrNo()
+    {
+        return $this->err;
+    }
+
+    public function getErrMsg()
+    {
+        return $this->errmsg;
     }
 }
