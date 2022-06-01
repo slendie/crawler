@@ -13,7 +13,8 @@ class Curl
         CURLOPT_MAXREDIRS           => 10,          // Setting the maximum number of redirections to follow
         CURLOPT_USERAGENT           => "Googlebot/2.1 (+http://www.googlebot.com/bot.html)",    // Setting the user agent
         CURLOPT_URL                 => '',          // Setting cURL's URL option
-        CURLOPT_ENCODING            => 'gzip,deflate',  // 
+        // CURLOPT_ENCODING            => 'gzip,deflate',  // Supported encondings are: "identify", "deflate", and "gzip"
+        CURLOPT_ENCODING            => 'gzip,deflate',
         CURLOPT_SSL_VERIFYHOST      => false,
         CURLOPT_SSL_VERIFYPEER      => false,
     ];
@@ -34,6 +35,8 @@ class Curl
 
     public function parse()
     {
+        // mb_internal_encoding('UTF-8');
+        
         $this->ch = curl_init();        // Initialising cURL
 
         $this->options[CURLOPT_URL] = $this->url;
@@ -46,7 +49,7 @@ class Curl
         $this->header       = curl_getinfo( $this->ch );        // To check whether any error occur or not
         $this->code         = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
         $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
-        $this->location     = curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL );
+        $this->location     = curl_unescape( $this->ch, curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL ) );
 
         curl_close( $this->ch );
 
@@ -59,6 +62,8 @@ class Curl
 
     public function header()
     {
+        // mb_internal_encoding('UTF-8');
+
         $this->ch = curl_init();        // Initialising cURL
 
         $this->options[CURLOPT_URL]     = $this->url;
@@ -75,7 +80,7 @@ class Curl
         $this->header       = curl_getinfo( $this->ch );        // To check whether any error occur or not
         $this->code         = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
         $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
-        $this->location     = curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL );
+        $this->location     = curl_unescape( $this->ch, curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL ) );
 
         curl_close( $this->ch );
 
@@ -124,20 +129,24 @@ class Curl
 
     public static function sanitize( $url )
     {
-        // $pattern = '/^([\w]+:\/\/)(.*)/';
-        // if ( preg_match( $pattern, $url, $match ) ) {
-        //     $protocol = $match[1];
-        //     $address = $match[2];
-            
-        //     $address = str_replace( 'º', urlencode('º'), $address );
-        //     $address = str_replace( 'ª', urlencode('ª'), $address );
-    
-        //     return $protocol . $address;
-        // } else {
-        //     return $url;
-        // }
-        $url = str_replace( 'º', urlencode('º'), $url );
-        $url = str_replace( 'ª', urlencode('ª'), $url );
+        $debug = false;
+        $control = false;
+        if ( preg_match( '/&/', $url ) && $debug ) {
+            $control = true;
+            echo "sanitize : {$url}" . PHP_EOL;
+        }
+
+        $encoding_chars = [
+            '&', 'º', 'ª', "'", 'à', 'á', 'ã', 'À', 'À', 'Ã', 'é', 'É', 'í', 'Í', 'ó', 'õ', 'Ó', 'Õ', 'ú', 'Ú', 'ç', 'Ç'
+        ];
+        foreach( $encoding_chars as $char ) {
+            $url = str_replace( $char, urlencode( $char ), $url );
+        }
+
+        if ( $control && $debug ) {
+            $control = false;
+            echo "sanitized: {$url}" . PHP_EOL;
+        }
         return $url;
     }
 }
