@@ -35,8 +35,6 @@ class Curl
 
     public function parse()
     {
-        // mb_internal_encoding('UTF-8');
-        
         $this->ch = curl_init();        // Initialising cURL
 
         $this->options[CURLOPT_URL] = $this->url;
@@ -49,7 +47,7 @@ class Curl
         $this->header       = curl_getinfo( $this->ch );        // To check whether any error occur or not
         $this->code         = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
         $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
-        $this->location     = curl_unescape( $this->ch, curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL ) );
+        $this->location     = curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL );
 
         curl_close( $this->ch );
 

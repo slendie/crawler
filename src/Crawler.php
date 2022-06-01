@@ -122,22 +122,6 @@ class Crawler
             if ( $this->location != $this->url ) {
                 $this->code = '302';
             }
-        // } elseif ( $this->code == '0' ) {
-        //     $res = $curl->parse();
-
-        //     $this->code         = $curl->getCode();
-        //     $this->content_type = $curl->getContentType();
-        //     $this->location     = $curl->getLocation();
-
-        //     if ( $res ) {
-        //         if ( $this->code == '200' ) {
-        //             if ( $this->location != $this->url ) {
-        //                 $this->code = '302';
-        //             }
-        //         }
-        //     } else {
-        //         $this->hasError     = true;
-        //     }
         }
 
         $this->content_type = $curl->getContentType();
@@ -215,12 +199,6 @@ class Crawler
                 $href = $link->getAttribute('href');
                 if ( !empty( $href ) ) {
                     $l[] = [
-                        // 'href'      =>  curl_unescape( $ch, $href ),
-                        // 'href'      =>  curl_escape( $ch, $href ),
-                        // 'href'      =>  urldecode( $href ),
-                        // 'href'      =>  urlencode( $href ),
-                        // 'href'      => utf8_decode(urldecode($href)),
-                        // 'href'      => utf8_decode( $href ),
                         'href'      => Curl::sanitize( $href ),
                         'element'   =>  $link->C14N(),
                         'html'      =>  trim( $this->innerHTML( $link ) ),
