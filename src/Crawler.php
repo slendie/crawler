@@ -14,6 +14,7 @@ class Crawler
     protected $xml = '';
     protected $code = '';
     protected $content_type = '';
+    protected $location = '';
 
     protected $hasError = false;
 
@@ -29,14 +30,22 @@ class Crawler
         $curl = new Curl( $this->url );
 
         if ( $curl->parse() ) {
-            $this->code = $curl->getCode();
+            $this->code         = $curl->getCode();
             $this->content_type = $curl->getContentType();
+            $this->location     = $curl->getLocation();
+
+            if ( $this->code == '200' ) {
+                if ( $this->location != $this->url ) {
+                    $this->code = '302';
+                }
+            }
 
             $data = $curl->getContent();
         } else {
-            $this->code = $curl->getCode();
-            $this->content_type = $curl->getContentType();                        
-            $this->hasError = true;
+            $this->code         = $curl->getCode();
+            $this->content_type = $curl->getContentType();
+            $this->location     = $curl->getLocation();
+            $this->hasError     = true;
 
             switch( $this->code ) {
                 case '':        // ???
@@ -51,6 +60,12 @@ class Crawler
                 case '429':     // Too many redirects
                     break;
 
+                case '500':     // Internal Server Error
+                    break;
+                    
+                case '504':     // Gateway Timeout Error
+                    break;
+                    
                 case '999':
                     break;
 
@@ -80,7 +95,16 @@ class Crawler
     {
         $curl = new Curl( $this->url );
         $curl->header();
-        $this->code = $curl->getCode();
+
+        $this->code     = $curl->getCode();
+        $this->location = $curl->getLocation();
+
+        if ( $this->code == '200' ) {
+            if ( $this->location != $this->url ) {
+                $this->code = '302';
+            }
+        }
+
         $this->content_type = $curl->getContentType();
     }
 
@@ -102,6 +126,11 @@ class Crawler
     public function getContentType()
     {
         return $this->content_type;
+    }
+
+    public function getLocation()
+    {
+        return $this->location;
     }
 
     public function isHtml()

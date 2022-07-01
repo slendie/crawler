@@ -26,6 +26,7 @@ class Curl
     protected $header = null;
     protected $has_error = false;
     protected $code = null;
+    protected $location = null;
 
     public function __construct( string $url ) {
         $this->setUrl( $url );
@@ -39,13 +40,15 @@ class Curl
 
         curl_setopt_array( $this->ch, $this->options );     // Setting cURL's options using the previously assigned array data
 
-        $this->data     = curl_exec( $this->ch );           // Executing the cURL request and assiging the returned data to the $data attribute.
-        $this->err      = curl_errno( $this->ch );
-        $this->errmsg   = curl_error( $this->ch );
-        $this->header   = curl_getinfo( $this->ch );        // To check whether any error occur or not
-        curl_close( $this->ch );
-        $this->code     = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
+        $this->data         = curl_exec( $this->ch );           // Executing the cURL request and assiging the returned data to the $data attribute.
+        $this->err          = curl_errno( $this->ch );
+        $this->errmsg       = curl_error( $this->ch );
+        $this->header       = curl_getinfo( $this->ch );        // To check whether any error occur or not
+        $this->code         = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
         $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
+        $this->location     = curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL );
+
+        curl_close( $this->ch );
 
         if ( $this->header['http_code'] != "200" ) {
             $this->has_error = true;
@@ -69,9 +72,10 @@ class Curl
 
         $output = curl_exec( $this->ch );           // Executing the cURL request and assiging the returned data to the $data attribute.
 
-        $this->header   = curl_getinfo( $this->ch );        // To check whether any error occur or not
-        $this->code     = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
+        $this->header       = curl_getinfo( $this->ch );        // To check whether any error occur or not
+        $this->code         = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
         $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
+        $this->location     = curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL );
 
         curl_close( $this->ch );
 
@@ -80,10 +84,7 @@ class Curl
 
     public function setUrl( $url )
     {
-        // ampersand
-        // $url = str_replace( '&', '&&', $url );
-
-        $this->url = $url;
+        $this->url = self::sanitize( $url );
     }
 
     public function getHeader()
@@ -96,6 +97,11 @@ class Curl
         return $this->code;
     }
     
+    public function getLocation()
+    {
+        return $this->location;
+    }
+
     public function getContentType()
     {
         return $this->content_type;
@@ -114,5 +120,24 @@ class Curl
     public function getErrMsg()
     {
         return $this->errmsg;
+    }
+
+    public static function sanitize( $url )
+    {
+        // $pattern = '/^([\w]+:\/\/)(.*)/';
+        // if ( preg_match( $pattern, $url, $match ) ) {
+        //     $protocol = $match[1];
+        //     $address = $match[2];
+            
+        //     $address = str_replace( 'º', urlencode('º'), $address );
+        //     $address = str_replace( 'ª', urlencode('ª'), $address );
+    
+        //     return $protocol . $address;
+        // } else {
+        //     return $url;
+        // }
+        $url = str_replace( 'º', urlencode('º'), $url );
+        $url = str_replace( 'ª', urlencode('ª'), $url );
+        return $url;
     }
 }
