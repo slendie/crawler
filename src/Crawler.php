@@ -9,6 +9,8 @@ use DOMXpath;
 
 class Crawler
 {
+    const HTTP_PATTERN = '/^(?:http|https)*:/i';
+
     protected $url = '';
     protected $doc = '';
     protected $xml = '';
@@ -27,13 +29,24 @@ class Crawler
 
     public function parse()
     {
+        if ( !preg_match( self::HTTP_PATTERN, $this->url ) ) {
+            $this->doc = '';
+            $this->xpath = '';
+            $this->code = '';
+            $this->content_type = '';
+            $this->setLocation( $this->url );
+            return;
+        }
+
         $curl = new Curl( $this->url );
 
-        if ( $curl->parse() ) {
-            $this->code         = $curl->getCode();
-            $this->content_type = $curl->getContentType();
-            $this->location     = $curl->getLocation();
+        $res = $curl->parse();
 
+        $this->code         = $curl->getCode();
+        $this->content_type = $curl->getContentType();
+        $this->setLocation( $curl->getLocation() );
+
+        if ( $res ) {
             if ( $this->code == '200' ) {
                 if ( $this->location != $this->url ) {
                     $this->code = '302';
@@ -42,9 +55,6 @@ class Crawler
 
             $data = $curl->getContent();
         } else {
-            $this->code         = $curl->getCode();
-            $this->content_type = $curl->getContentType();
-            $this->location     = $curl->getLocation();
             $this->hasError     = true;
 
             switch( $this->code ) {
@@ -93,11 +103,20 @@ class Crawler
 
     public function header()
     {
+        if ( !preg_match( self::HTTP_PATTERN, $this->url ) ) {
+            $this->doc = '';
+            $this->xpath = '';
+            $this->code = '';
+            $this->content_type = '';
+            $this->setLocation( $this->url );
+            return;
+        }
+
         $curl = new Curl( $this->url );
         $curl->header();
 
         $this->code     = $curl->getCode();
-        $this->location = $curl->getLocation();
+        $this->setLocation( $curl->getLocation() );
 
         if ( $this->code == '200' ) {
             if ( $this->location != $this->url ) {
@@ -126,6 +145,11 @@ class Crawler
     public function getContentType()
     {
         return $this->content_type;
+    }
+
+    private function setLocation( $location )
+    {
+        $this->location = Curl::sanitize( $location );
     }
 
     public function getLocation()
@@ -165,6 +189,8 @@ class Crawler
 
         $links = $this->xpath->query('//a[@href]');
 
+        $ch = curl_init();
+
         $l = [];
         if ( !is_null( $links ) ) {
             $this->links = $links;
@@ -173,7 +199,7 @@ class Crawler
                 $href = $link->getAttribute('href');
                 if ( !empty( $href ) ) {
                     $l[] = [
-                        'href'      =>  $href,
+                        'href'      => Curl::sanitize( $href ),
                         'element'   =>  $link->C14N(),
                         'html'      =>  trim( $this->innerHTML( $link ) ),
                         'content'   =>  $link->textContent  // $link->nodeValue
@@ -181,6 +207,7 @@ class Crawler
                 }
             }
         }
+        curl_close( $ch );
         return $l;
     }
 
