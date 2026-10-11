@@ -2,36 +2,164 @@
 namespace Slendie\Crawler;
 
 use Slendie\Crawler\Curl;
+use Slendie\Tools\Str;
+
 use DOMDocument;
 use DOMXpath;
 
 class Crawler
 {
+    const HTTP_PATTERN = '/^(?:http|https)*:/i';
+
     protected $url = '';
     protected $doc = '';
     protected $xml = '';
+    protected $code = '';
+    protected $content_type = '';
+    protected $location = '';
+
+    protected $hasError = false;
 
     protected $links = [];
 
     public function __construct( $url ) 
     {
         $this->url = $url;
+    }
+
+    public function parse()
+    {
+        if ( !preg_match( self::HTTP_PATTERN, $this->url ) ) {
+            $this->doc = '';
+            $this->xpath = '';
+            $this->code = '';
+            $this->content_type = '';
+            $this->setLocation( $this->url );
+            return;
+        }
 
         $curl = new Curl( $this->url );
-        $data = $curl->parse();
+
+        $res = $curl->parse();
+
+        $this->code         = $curl->getCode();
+        $this->content_type = $curl->getContentType();
+        $this->setLocation( $curl->getLocation() );
+
+        if ( $res ) {
+            if ( $this->code == '200' ) {
+                if ( $this->location != $this->url ) {
+                    $this->code = '302';
+                }
+            }
+
+            $data = $curl->getContent();
+        } else {
+            $this->hasError     = true;
+
+            switch( $this->code ) {
+                case '':        // ???
+                    break;
+
+                case '400':     // Bad request
+                    break;
+
+                case '404':     // Page not found
+                    break;
+
+                case '429':     // Too many redirects
+                    break;
+
+                case '500':     // Internal Server Error
+                    break;
+                    
+                case '504':     // Gateway Timeout Error
+                    break;
+                    
+                case '999':
+                    break;
+
+                default:
+                    $err = $curl->getErrNo();
+                    $errmsg = $curl->getErrMsg();
+                    throw new \Exception("Erro ao fazer o parse do {$this->url} (HTTP:{$this->code}) com erro: {$err} : {$errmsg}");
+                    return;
+                    break;
+            }
+
+            $data = '';
+        }
 
         $this->doc = new DOMDocument();
 
         // fix html5/svg errors
         libxml_use_internal_errors(true);
 
-        $this->doc->loadHTML( $data );
-        $this->xpath = new DOMXpath( $this->doc );
+        if ( !$this->hasError ) {
+            $this->doc->loadHTML( $data );
+            $this->xpath = new DOMXpath( $this->doc );
+        }
+    }
+
+    public function header()
+    {
+        if ( !preg_match( self::HTTP_PATTERN, $this->url ) ) {
+            $this->doc = '';
+            $this->xpath = '';
+            $this->code = '';
+            $this->content_type = '';
+            $this->setLocation( $this->url );
+            return;
+        }
+
+        $curl = new Curl( $this->url );
+        $curl->header();
+
+        $this->code     = $curl->getCode();
+        $this->setLocation( $curl->getLocation() );
+
+        if ( $this->code == '200' ) {
+            if ( $this->location != $this->url ) {
+                $this->code = '302';
+            }
+        }
+
+        $this->content_type = $curl->getContentType();
     }
 
     public function html()
     {
         return $this->doc->saveHTML();
+    }
+
+    public function hasError()
+    {
+        return $this->hasError;
+    }
+
+    public function getCode()
+    {
+        return $this->code;
+    }
+
+    public function getContentType()
+    {
+        return $this->content_type;
+    }
+
+    private function setLocation( $location )
+    {
+        $this->location = Curl::sanitize( $location );
+    }
+
+    public function getLocation()
+    {
+        return $this->location;
+    }
+
+    public function isHtml()
+    {
+        return Str::startsWith( 'text/html', $this->content_type );
     }
 
     public function getMetas()
@@ -55,8 +183,13 @@ class Crawler
 
     public function getLinks()
     {
-        // $links = $this->doc->getElementsByTagName('a');
+        if ( $this->hasError ) {
+            return [];
+        }
+
         $links = $this->xpath->query('//a[@href]');
+
+        $ch = curl_init();
 
         $l = [];
         if ( !is_null( $links ) ) {
@@ -66,7 +199,7 @@ class Crawler
                 $href = $link->getAttribute('href');
                 if ( !empty( $href ) ) {
                     $l[] = [
-                        'href'      =>  $href,
+                        'href'      => Curl::sanitize( $href ),
                         'element'   =>  $link->C14N(),
                         'html'      =>  trim( $this->innerHTML( $link ) ),
                         'content'   =>  $link->textContent  // $link->nodeValue
@@ -74,12 +207,15 @@ class Crawler
                 }
             }
         }
+        curl_close( $ch );
         return $l;
     }
 
     public function googleSearchResults()
     {
-        // $nodes = $this->xpath->query('//div[class="g"]');
+        if ( $this->hasError ) {
+            return [];
+        }
 
         // Google Maps
         $nodes = $this->xpath->query("//div[@class='X7NTVe']");

@@ -13,35 +13,138 @@ class Curl
         CURLOPT_MAXREDIRS           => 10,          // Setting the maximum number of redirections to follow
         CURLOPT_USERAGENT           => "Googlebot/2.1 (+http://www.googlebot.com/bot.html)",    // Setting the user agent
         CURLOPT_URL                 => '',          // Setting cURL's URL option
-        CURLOPT_ENCODING            => 'gzip,deflate',  // 
+        // CURLOPT_ENCODING            => 'gzip,deflate',  // Supported encondings are: "identify", "deflate", and "gzip"
+        CURLOPT_ENCODING            => 'gzip,deflate',
+        CURLOPT_SSL_VERIFYHOST      => false,
+        CURLOPT_SSL_VERIFYPEER      => false,
     ];
 
+    protected $url = null;
     protected $ch = null;
     protected $data = null;
-    protected $http_code = null;
-    protected $is_error = false;
+    protected $err = null;
+    protected $errmsg = null;
+    protected $header = null;
+    protected $has_error = false;
+    protected $code = null;
+    protected $location = null;
 
     public function __construct( string $url ) {
-        $this->ch = curl_init();        // Initialising cURL
-
-        // ampersand
-        // $url = str_replace( '&', '&&', $url );
-
-        $this->options[CURLOPT_URL] = $url;
-
-        curl_setopt_array( $this->ch, $this->options );  // Setting cURL's options using the previously assigned array data
+        $this->setUrl( $url );
     }
 
     public function parse()
     {
-        $this->data = curl_exec( $this->ch );       // Executing the cURL request and assiging the returned data to the $data attribute.
+        $this->ch = curl_init();        // Initialising cURL
 
-        $this->http_code = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );   // To check whether any error occur or not
+        $this->options[CURLOPT_URL] = $this->url;
 
-        if ( $this->http_code != "200" ) {
-            $this->is_error = true;
+        curl_setopt_array( $this->ch, $this->options );     // Setting cURL's options using the previously assigned array data
+
+        $this->data         = curl_exec( $this->ch );           // Executing the cURL request and assiging the returned data to the $data attribute.
+        $this->err          = curl_errno( $this->ch );
+        $this->errmsg       = curl_error( $this->ch );
+        $this->header       = curl_getinfo( $this->ch );        // To check whether any error occur or not
+        $this->code         = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
+        $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
+        $this->location     = curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL );
+
+        curl_close( $this->ch );
+
+        if ( $this->header['http_code'] != "200" ) {
+            $this->has_error = true;
+            return false;
+        }
+        return true;
+    }
+
+    public function header()
+    {
+        // mb_internal_encoding('UTF-8');
+
+        $this->ch = curl_init();        // Initialising cURL
+
+        $this->options[CURLOPT_URL]     = $this->url;
+
+        $options = $this->options;
+        $options[CURLOPT_NOBODY]    = true;
+        $options[CURLOPT_HEADER]    = true;
+        $options[CURLOPT_FILETIME]  = true;
+
+        curl_setopt_array( $this->ch, $options );           // Setting cURL's options using the previously assigned array data
+
+        $output = curl_exec( $this->ch );           // Executing the cURL request and assiging the returned data to the $data attribute.
+
+        $this->header       = curl_getinfo( $this->ch );        // To check whether any error occur or not
+        $this->code         = curl_getinfo( $this->ch, CURLINFO_HTTP_CODE );
+        $this->content_type = curl_getinfo( $this->ch, CURLINFO_CONTENT_TYPE );
+        $this->location     = curl_unescape( $this->ch, curl_getinfo( $this->ch, CURLINFO_EFFECTIVE_URL ) );
+
+        curl_close( $this->ch );
+
+        return $this->header;                               // Returning the data from the function
+    }
+
+    public function setUrl( $url )
+    {
+        $this->url = self::sanitize( $url );
+    }
+
+    public function getHeader()
+    {
+        return $this->header;
+    }
+
+    public function getCode()
+    {
+        return $this->code;
+    }
+    
+    public function getLocation()
+    {
+        return $this->location;
+    }
+
+    public function getContentType()
+    {
+        return $this->content_type;
+    }
+    
+    public function getContent()
+    {
+        return $this->data;
+    }
+
+    public function getErrNo()
+    {
+        return $this->err;
+    }
+
+    public function getErrMsg()
+    {
+        return $this->errmsg;
+    }
+
+    public static function sanitize( $url )
+    {
+        $debug = false;
+        $control = false;
+        if ( preg_match( '/&/', $url ) && $debug ) {
+            $control = true;
+            echo "sanitize : {$url}" . PHP_EOL;
         }
 
-        return $this->data;                         // Returning the data from the function
+        $encoding_chars = [
+            '&', 'º', 'ª', "'", 'à', 'á', 'ã', 'À', 'À', 'Ã', 'é', 'É', 'í', 'Í', 'ó', 'õ', 'Ó', 'Õ', 'ú', 'Ú', 'ç', 'Ç'
+        ];
+        foreach( $encoding_chars as $char ) {
+            $url = str_replace( $char, urlencode( $char ), $url );
+        }
+
+        if ( $control && $debug ) {
+            $control = false;
+            echo "sanitized: {$url}" . PHP_EOL;
+        }
+        return $url;
     }
 }
